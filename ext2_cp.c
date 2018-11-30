@@ -228,6 +228,7 @@ int main(int argc, char **argv){
     }
 
     printf("cp finished!\n");
+    return 0;
 }
 
 
