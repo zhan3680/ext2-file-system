@@ -132,7 +132,7 @@ int main(int argc, char **argv){
         name_length_cp = strlen(filename);
     }
 
-    if(case2){  //newly updated!!!!!!!!!!!!!!!!!!!!!!!
+    if(case2){  
         if(search_in_inode(alternative_filename, strlen(alternative_filename), inode_table[dir_inode_num-1], 'f') > 0){
             printf("result of search_in_inode: %d\n",search_in_inode(alternative_filename, strlen(alternative_filename), inode_table[dir_inode_num-1], 'f'));
             return EEXIST;
@@ -198,9 +198,9 @@ int main(int argc, char **argv){
                     cur_entry->file_type |= EXT2_FT_REG_FILE;
                     cur_entry->rec_len = EXT2_BLOCK_SIZE - cur_rec;
                     if(case2){
-                        strncpy(cur_entry->name, alternative_filename, cur_entry->name_len+1);
+                        strncpy(cur_entry->name, alternative_filename, cur_entry->name_len);  //newly updated, change from cur_entry->name_len + 1 to cur_entry->name_len!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                     }else{
-                        strncpy(cur_entry->name, filename, cur_entry->name_len+1);
+                        strncpy(cur_entry->name, filename, cur_entry->name_len);
                     }
                     entry_inserted = 1;
                 }                
@@ -213,9 +213,9 @@ int main(int argc, char **argv){
                     cur_entry->file_type |= EXT2_FT_REG_FILE;
                     cur_entry->rec_len = EXT2_BLOCK_SIZE - cur_rec;
                     if(case2){
-                        strncpy(cur_entry->name, alternative_filename, cur_entry->name_len+1);
+                        strncpy(cur_entry->name, alternative_filename, cur_entry->name_len);
                     }else{
-                        strncpy(cur_entry->name, filename, cur_entry->name_len+1);
+                        strncpy(cur_entry->name, filename, cur_entry->name_len);    //newly updated, change from cur_entry->name_len + 1 to cur_entry->name_len!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                     }
                     entry_inserted = 1;
             }
