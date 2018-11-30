@@ -444,10 +444,90 @@ int exists_repetitive_dir_entry(int dir_inode_num, char *name, char type){
     }
 }
 
+
+
 /*
  *add a directory entry to a directory inode, return 0 on success, return -ENOSPC on failure
  */
 int add_entry(int dir_inode_num, struct ext2_dir_entry *entry_to_add){
+    struct ext2_inode *dir_inode = (struct ext2_inode *)(&(inode_table[dir_inode_num-1]));    
+    int block_index = -1;
+    int i_block_index;
+    for(i_block_index = 0; i_block_index < 12; i_block_index++){
+        if(dir_inode->i_block[i_block_index+1] == 0){
+            block_index = dir_inode->i_block[i_block_index];
+            break;
+        }
+    }
+    if(block_index == -1){
+        return -ENOSPC;
+    }   
+    struct ext2_dir_entry *cur_entry = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_index);
+    int cur_rec = 0;
+    int entry_inserted = 0;
+    while(!entry_inserted){
+	    while(cur_rec + cur_entry->rec_len < EXT2_BLOCK_SIZE){   //each dir at least has 2 entries: "." and ".."
+		cur_rec += cur_entry->rec_len;
+                cur_entry = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_index + cur_rec);   
+	    }
+            int cur_entry_rec_len = calculate_reclen(cur_entry);
+            if(cur_rec + cur_entry_rec_len < EXT2_BLOCK_SIZE){
+                struct ext2_dir_entry *next_entry_possibly_a_gap = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_index + cur_rec + cur_entry_rec_len);
+                while(next_entry_possibly_a_gap->inode != 0 /*&& cur_rec + cur_entry->rec_len < EXT2_BLOCK_SIZE*/){ //we have a gap at the end of current block!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    cur_rec += cur_entry_rec_len;
+                    cur_entry = next_entry_possibly_a_gap;
+                    if(cur_rec + cur_entry->rec_len >= EXT2_BLOCK_SIZE){
+                        break;
+                    }
+                    cur_entry_rec_len = calculate_reclen(cur_entry);
+                    if(cur_rec + cur_entry_rec_len >= EXT2_BLOCK_SIZE){
+                        break;
+                    }
+                    next_entry_possibly_a_gap = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_index + cur_rec + cur_entry_rec_len);    
+                }
+            }
+            if((EXT2_BLOCK_SIZE - cur_rec) - calculate_reclen(cur_entry) < entry_to_add->rec_len){
+                if(i_block_index >= 11){
+                    return -ENOSPC;
+                }else{
+                    block_index = allocate_dblock(); 
+                    if(block_index == -1){
+                        return -ENOSPC;  
+                    }
+                    i_block_index += 1;
+                    //block_index -= 1;
+                    dir_inode->i_block[i_block_index] = block_index;
+                    cur_rec = 0;
+                    cur_entry = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_index + cur_rec);
+                    cur_entry->inode = entry_to_add->inode;
+                    cur_entry->name_len = entry_to_add->name_len;
+                    cur_entry->file_type = entry_to_add->file_type;
+                    cur_entry->rec_len = EXT2_BLOCK_SIZE - cur_rec;
+                    strncpy(cur_entry->name, entry_to_add->name, cur_entry->name_len);
+                    entry_inserted = 1;
+                }                
+            }else{
+                    cur_entry->rec_len = calculate_reclen(cur_entry);
+                    cur_rec += cur_entry->rec_len;
+                    cur_entry = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_index + cur_rec);
+                    cur_entry->inode = entry_to_add->inode;
+                    cur_entry->name_len = entry_to_add->name_len;
+                    cur_entry->file_type = entry_to_add->file_type;
+                    cur_entry->rec_len = EXT2_BLOCK_SIZE - cur_rec;
+                    strncpy(cur_entry->name, entry_to_add->name, cur_entry->name_len);
+                    entry_inserted = 1;
+            }
+    }
+    return 0;
+}
+
+
+
+
+/*
+ *add a directory entry to a directory inode, return 0 on success, return -ENOSPC on failure
+ */
+/*int add_entry_original(int dir_inode_num, struct ext2_dir_entry *entry_to_add){
     struct ext2_inode *dir_inode = (struct ext2_inode *)(&(inode_table[dir_inode_num-1]));    
     int block_index = -1;
     int i_block_index;
@@ -502,7 +582,7 @@ int add_entry(int dir_inode_num, struct ext2_dir_entry *entry_to_add){
     }
     return 0;
 }
-
+*/
 
 
 
