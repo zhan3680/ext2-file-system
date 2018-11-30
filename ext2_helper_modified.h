@@ -51,11 +51,11 @@ int search_in_db(char* target_name, int dir_block, char type){
 		strncpy(cur_name, cur_entry->name, cur_entry->name_len);
 		cur_name[cur_entry->name_len] = '\0';
 		//printf("Current name is %s\n", cur_name);
-		if(cur_entry->file_type & EXT2_FT_REG_FILE){
+		if(cur_entry->file_type == EXT2_FT_REG_FILE){   //modified!!!!!!!!!!!!!!!!!!!!!!!!!!
 			cur_type = 'f';
-		} else if (cur_entry->file_type & EXT2_FT_DIR){
+		} else if (cur_entry->file_type == EXT2_FT_DIR){
 		        cur_type = 'd';
-		} else if (cur_entry->file_type & EXT2_FT_SYMLINK){
+		} else if (cur_entry->file_type == EXT2_FT_SYMLINK){
 			cur_type = 'l';
 		} else {
 			cur_type = '0';
@@ -99,11 +99,11 @@ struct ext2_dir_entry* sen_in_db(char* target_name, int dir_block, char type){
 		char cur_type;
 		strncpy(cur_name, cur_entry->name, cur_entry->name_len);
 		cur_name[cur_entry->name_len] = '\0';
-		if(cur_entry->file_type & EXT2_FT_REG_FILE){
+		if(cur_entry->file_type == EXT2_FT_REG_FILE){
 			cur_type = 'f';
-		} else if (cur_entry->file_type & EXT2_FT_DIR){
+		} else if (cur_entry->file_type == EXT2_FT_DIR){
 		    cur_type = 'd';
-		} else if (cur_entry->file_type & EXT2_FT_SYMLINK){
+		} else if (cur_entry->file_type == EXT2_FT_SYMLINK){
 			cur_type = 'l';
 		} else {
 			cur_type = '0';
@@ -302,7 +302,7 @@ int cd(char* path, int i_node_start, int level, char type){
                 byte_index = (i - 1)/8;
 		bit_index = (i - 1)%8;
 		if(inode_bit_map[byte_index] & 1<<bit_index){
-		        if(inode_table[i - 1].i_mode & EXT2_S_IFDIR){
+		        if(S_ISDIR(inode_table[i - 1].i_mode)){  //modified!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 				if(cur_level == level -1){
 			                target_inode = search_in_inode(target_dir, end, inode_table[i - 1], type);
 		                } else {

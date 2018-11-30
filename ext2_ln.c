@@ -30,6 +30,13 @@ int main(int argc, char **argv){
         exit(100);
     }
 
+    //initialize disk
+    int fd = open(argv[1], O_RDWR);
+    disk = mmap(NULL, 128 * 1024, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if(disk == MAP_FAILED) {
+        perror("mmap");
+        exit(1);
+    }
     gd = (struct ext2_group_desc *)(disk + EXT2_BLOCK_SIZE * 2);
     sb = (struct ext2_super_block *)(disk + EXT2_BLOCK_SIZE);
     inode_bit_map = (unsigned char *)(disk + EXT2_BLOCK_SIZE*gd->bg_inode_bitmap);
@@ -69,30 +76,32 @@ int main(int argc, char **argv){
         if(cd_revised(source_hard, 'd') > 0){
             return EISDIR;
         }
-
+        printf("place1\n");
         int inode_num = cd_revised(source_hard, 'f');
         int dir_inode_num = cd_revised(dest_hard, 'd');
         if(inode_num < 0 || dir_inode_num < 0){
             return ENOENT;
         }
+        printf("place1.5\n");
         if(exists_repetitive_dir_entry(dir_inode_num, linkname_hard, 'f')){
             return EEXIST;
         }
-        
+        printf("place2\n");
         //add an entry to inode numbered dir_inode_num
-        struct ext2_dir_entry hard_link;
-        hard_link.inode = inode_num;
-        hard_link.name_len = strlen(linkname_hard);
-        hard_link.file_type = (0 | EXT2_FT_REG_FILE);
-        hard_link.rec_len = calculate_reclen(&hard_link);
-        strncpy(hard_link.name, linkname_hard, strlen(linkname_hard));
-        if(add_entry(dir_inode_num, &hard_link) < 0){
+        struct ext2_dir_entry *hard_link = malloc(sizeof(struct ext2_dir_entry));
+        hard_link->inode = inode_num;
+        hard_link->name_len = strlen(linkname_hard);
+        hard_link->file_type = EXT2_FT_REG_FILE;
+        hard_link->rec_len = calculate_reclen(hard_link);
+        strncpy(hard_link->name, linkname_hard, strlen(linkname_hard));
+        if(add_entry(dir_inode_num, hard_link) < 0){
             return ENOSPC;
         }
-        
+        free(hard_link);
+        printf("place3\n");
         //increase i_links_count in source by 1
         inode_table[inode_num-1].i_links_count += 1;
-
+      
 
     }else{  //symbolic link 
         char dest_soft[strlen(argv[4])+1];
@@ -122,6 +131,11 @@ int main(int argc, char **argv){
         //printf("link name is: %s\n", linkname_soft);
         //printf("pure path is: %s\n", dest_without_linkname);
 
+        //check if source path is valid
+        if(cd_revised(source_soft, 'd') < 0 && cd_revised(source_soft, 'f') < 0 && cd_revised(source_soft, 'l') < 0){
+            return ENOENT;       //newest update!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        }
+
         //check if link name exists: use search_in_inode
         int directory_inode_number_soft = cd_revised(dest_without_linkname, 'd');
         if(directory_inode_number_soft < 0){
@@ -137,17 +151,17 @@ int main(int argc, char **argv){
             return ENOSPC;
         }
         struct ext2_inode *soft_link_inode = (struct ext2_inode *)(&(inode_table[soft_link_inode_num-1]));
-        soft_link_inode->i_mode |= EXT2_S_IFLNK;
+        soft_link_inode->i_mode = EXT2_S_IFLNK;
         soft_link_inode->i_links_count = 1;
  
         //create and insert dir entry
-        struct ext2_dir_entry soft_link;
-        soft_link.inode = soft_link_inode_num;
-        soft_link.file_type = (0 | EXT2_FT_SYMLINK);
-        soft_link.name_len = strlen(linkname_soft);
-        soft_link.rec_len = calculate_reclen(&soft_link);
-        strncpy(soft_link.name, linkname_soft, strlen(linkname_soft));
-        if(add_entry(directory_inode_number_soft, &soft_link) < 0){
+        struct ext2_dir_entry *soft_link = malloc(sizeof(struct ext2_dir_entry));
+        soft_link->inode = soft_link_inode_num;
+        soft_link->file_type = EXT2_FT_SYMLINK;
+        soft_link->name_len = strlen(linkname_soft);
+        soft_link->rec_len = calculate_reclen(soft_link);
+        strncpy(soft_link->name, linkname_soft, strlen(linkname_soft));
+        if(add_entry(directory_inode_number_soft, soft_link) < 0){
             return ENOSPC;
         }
 
@@ -169,3 +183,6 @@ int main(int argc, char **argv){
 
     return 0;
 }
+
+
+

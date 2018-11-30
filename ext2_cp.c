@@ -159,24 +159,24 @@ int main(int argc, char **argv){
     }
 
     struct ext2_inode *cp_inode = (struct ext2_inode *)(&(inode_table[inode_num-1]));
-    cp_inode->i_mode |= EXT2_S_IFREG;
+    cp_inode->i_mode = EXT2_S_IFREG;
     cp_inode->i_links_count = 1;
 
 
     //add entry of the new file to the dir it belongs to 
-    struct ext2_dir_entry entry_cp;
-    entry_cp.inode = inode_num;
+    struct ext2_dir_entry *entry_cp = malloc(sizeof(struct ext2_dir_entry));
+    entry_cp->inode = inode_num;
     //entry_cp.name_len = name_length_cp;
-    entry_cp.file_type = (0|EXT2_FT_REG_FILE);  
+    entry_cp->file_type = EXT2_FT_REG_FILE;  
     if(case2){
-        strncpy(entry_cp.name, alternative_filename, strlen(alternative_filename));
-        entry_cp.name_len = strlen(alternative_filename);
+        strncpy(entry_cp->name, alternative_filename, strlen(alternative_filename));
+        entry_cp->name_len = strlen(alternative_filename);
     }else{
-        strncpy(entry_cp.name, filename, strlen(filename));
-        entry_cp.name_len = strlen(filename);
+        strncpy(entry_cp->name, filename, strlen(filename));
+        entry_cp->name_len = strlen(filename);
     }
-    entry_cp.rec_len = calculate_reclen(&entry_cp); 
-    if(add_entry(dir_inode_num, &entry_cp) < 0){
+    entry_cp->rec_len = calculate_reclen(entry_cp); 
+    if(add_entry(dir_inode_num, entry_cp) < 0){
         return ENOSPC;
     }
 
