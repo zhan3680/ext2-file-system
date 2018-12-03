@@ -462,30 +462,37 @@ int add_entry(int dir_inode_num, struct ext2_dir_entry *entry_to_add){
     if(block_index == -1){
         return -ENOSPC;
     }   
+    struct ext2_dir_entry *temp;
+    int cur_rec_when_we_are_at_temp;  //modified!!!!!!!!!!!!!!!!!!!!
     struct ext2_dir_entry *cur_entry = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_index);
     int cur_rec = 0;
     int entry_inserted = 0;
     while(!entry_inserted){
 	    while(cur_rec + cur_entry->rec_len < EXT2_BLOCK_SIZE){   //each dir at least has 2 entries: "." and ".."
 		cur_rec += cur_entry->rec_len;
-                cur_entry = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_index + cur_rec);   
+		cur_entry = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_index + cur_rec);   
 	    }
-            int cur_entry_rec_len = calculate_reclen(cur_entry);
-            if(cur_rec + cur_entry_rec_len < EXT2_BLOCK_SIZE){
-                struct ext2_dir_entry *next_entry_possibly_a_gap = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_index + cur_rec + cur_entry_rec_len);
-                while(next_entry_possibly_a_gap->inode != 0 /*&& cur_rec + cur_entry->rec_len < EXT2_BLOCK_SIZE*/){ //we have a gap at the end of current block!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                    cur_rec += cur_entry_rec_len;
-                    cur_entry = next_entry_possibly_a_gap;
-                    if(cur_rec + cur_entry->rec_len >= EXT2_BLOCK_SIZE){
-                        break;
-                    }
-                    cur_entry_rec_len = calculate_reclen(cur_entry);
-                    if(cur_rec + cur_entry_rec_len >= EXT2_BLOCK_SIZE){
-                        break;
-                    }
-                    next_entry_possibly_a_gap = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_index + cur_rec + cur_entry_rec_len);    
-                }
-            }
+	    int cur_entry_rec_len = calculate_reclen(cur_entry);
+	    if(cur_rec + cur_entry_rec_len < EXT2_BLOCK_SIZE){
+	        struct ext2_dir_entry *next_entry_possibly_a_gap = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_index + cur_rec + cur_entry_rec_len);
+	        temp = cur_entry;
+                temp->rec_len = calculate_reclen(temp); //modified!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                cur_rec_when_we_are_at_temp = cur_rec;  //modified!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	        while(next_entry_possibly_a_gap->inode != 0 /*&& cur_rec + cur_entry->rec_len < EXT2_BLOCK_SIZE*/){ //we have a gap at the end of current block!!!
+		    cur_rec += cur_entry_rec_len;
+		    cur_entry = next_entry_possibly_a_gap;
+		    if(cur_rec + cur_entry->rec_len >= EXT2_BLOCK_SIZE){
+		        break;
+		    }
+		    cur_entry_rec_len = calculate_reclen(cur_entry);
+                    temp->rec_len += cur_entry_rec_len; //modified!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		    if(cur_rec + cur_entry_rec_len >= EXT2_BLOCK_SIZE || cur_entry_rec_len == cur_entry->rec_len){ //modified!!!!!!!!!!!!!!!!!!!!!!!!!!
+		        break;
+		    }
+		    next_entry_possibly_a_gap = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_index + cur_rec + cur_entry_rec_len);    
+		}
+	    }
+	    //temp->rec_len = cur_rec + cur_entry_rec_len - EXT2_BLOCK_SIZE + temp->rec_len;
             if((EXT2_BLOCK_SIZE - cur_rec) - calculate_reclen(cur_entry) < entry_to_add->rec_len){
                 if(i_block_index >= 11){
                     return -ENOSPC;
@@ -494,6 +501,7 @@ int add_entry(int dir_inode_num, struct ext2_dir_entry *entry_to_add){
                     if(block_index == -1){
                         return -ENOSPC;  
                     }
+                    temp->rec_len = EXT2_BLOCK_SIZE - cur_rec_when_we_are_at_temp; //modified!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                     i_block_index += 1;
                     //block_index -= 1;
                     dir_inode->i_block[i_block_index] = block_index;
@@ -507,6 +515,7 @@ int add_entry(int dir_inode_num, struct ext2_dir_entry *entry_to_add){
                     entry_inserted = 1;
                 }                
             }else{
+                    //no need to update temp->rec_len here;
                     cur_entry->rec_len = calculate_reclen(cur_entry);
                     cur_rec += cur_entry->rec_len;
                     cur_entry = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_index + cur_rec);
