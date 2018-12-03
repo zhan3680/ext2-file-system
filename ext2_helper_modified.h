@@ -646,7 +646,8 @@ int allocate_inode(){
 	/* Set all the values to 0. */
 	printf("The index of new block is %d\n", new_block);
 	memset(&inode_table[new_block - 1], 0, sizeof(struct ext2_inode));
-	gd->bg_free_inodes_count -= 1;  //modified!!!!!!!!!!!!!!!!!
+	gd->bg_free_inodes_count -= 1;  
+        sb->s_free_inodes_count -= 1; //12-02 23:00!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	return new_block;
 }
 
@@ -662,7 +663,8 @@ int allocate_dblock(){
 	/* Set all the values to 0. */
 	printf("The index of new data block is %d\n", new_block);
 	memset(disk + EXT2_BLOCK_SIZE * new_block, 0, EXT2_BLOCK_SIZE);
-	gd->bg_free_blocks_count -= 1;  //modified!!!!!!!!!!!!!!!!!!!!!!!
+	gd->bg_free_blocks_count -= 1;  
+        sb->s_free_blocks_count -= 1;  //12-02 23:00!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
 	return new_block;
 }
 
