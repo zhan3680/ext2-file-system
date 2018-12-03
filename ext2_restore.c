@@ -148,6 +148,7 @@ void restore_data_block(int block_index){
     int bit_index = index_in_block_bitmap%8;
     block_bit_map[byte_index] |= (1<<bit_index);
     gd->bg_free_blocks_count -= 1;
+    sb->s_free_blocks_count -= 1;
 }
 
 /*
@@ -157,6 +158,7 @@ void restore_inode_full(int inode_num){
     int inode_index = inode_num - 1;
     inode_bit_map[inode_index/8] |= (1<<(inode_index%8));
     gd->bg_free_inodes_count -= 1;
+    sb->s_free_inodes_count -= 1;
 
     struct ext2_inode inode_to_restore = inode_table[inode_num-1];
     int index = 0;
