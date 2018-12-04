@@ -162,7 +162,7 @@ void restore_inode_full(int inode_num){
 
     struct ext2_inode *inode_to_restore = (struct ext2_inode *)(&(inode_table[inode_num-1]));
     inode_to_restore -> i_dtime = 0;
-    inode_to_restore -> i_links_count += 1;  //newest modification!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    inode_to_restore -> i_links_count += 1;
     int index = 0;
     int block_index;    
     while(inode_to_restore->i_block[index] != 0 && index < 12){
@@ -230,8 +230,6 @@ int main(int argc, char **argv){
     char dir_path[tail+1];
     strncpy(dir_path, file_path, tail);
     dir_path[tail] = '\0';
-    printf("filename is: %s\n", filename);
-    printf("dir path is: %s\n", dir_path);
 
     //validate dir path
     int dir_inode_num = cd_revised(dir_path, 'd');    
@@ -277,7 +275,7 @@ int main(int argc, char **argv){
                         restore_inode_full(gap_inode_num);
                         return 0;
                     }else{
-                        return ENOENT; //?????????????????or maybe another error?
+                        return ENOENT; 
                     }
                 }
             }
@@ -306,12 +304,12 @@ int main(int argc, char **argv){
                 restore_inode_full(gap_inode_num);
                 return 0;
             }else{
-                return ENOENT; //?????????????????or maybe another error?
+                return ENOENT; 
             }
         }
  
         index++;
-        cur_rec = 0;  //important!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        cur_rec = 0; 
     }
     return ENOENT;
 }

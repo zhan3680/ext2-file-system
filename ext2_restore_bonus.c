@@ -16,8 +16,10 @@ int data_block_occupied(int block_index);
 void restore_entry(int dblock_num, int reclen_before_gap, int gap_reclen);
 void restore_data_block(int block_index);
 void restore_inode_full(int inode_num);
-
-
+int dir_block_recoverable(int block_num);
+int dir_recoverable(int dir_inode_num);
+void restore_dir_block(int block_num);
+void restore_dir(int dir_inode_num);
 
 /*disk components*/
 unsigned char *disk;
@@ -194,16 +196,38 @@ int dir_block_recoverable(int block_num){
         return 0;
     }
     struct ext2_dir_entry *cur_entry = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_num);
-    int cur_rec = 0;    
+    int cur_rec = 0;
+    char dir_name[EXT2_NAME_LEN+1];                               
     while(cur_rec + cur_entry->rec_len < EXT2_BLOCK_SIZE){
-        if(!recoverable(cur_entry->inode)){
-            return 0;
+        strncpy(dir_name, cur_entry->name, cur_entry->name_len);
+        dir_name[cur_entry->name_len] = '\0';
+        if(cur_entry->file_type == EXT2_FT_DIR){ //dir
+            if(strcmp(dir_name, ".") != 0 && strcmp(dir_name, "..") != 0){
+                if(!dir_recoverable(cur_entry->inode)){
+                    return 0;
+                }
+            }
+        }else{
+            if(!recoverable(cur_entry->inode)){
+                return 0;
+            }
+            
         }
         cur_rec += cur_entry->rec_len;
         cur_entry = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_num + cur_rec);
     }
-    if(!recoverable(cur_entry->inode)){
-        return 0; 
+    strncpy(dir_name, cur_entry->name, cur_entry->name_len);
+    dir_name[cur_entry->name_len] = '\0';
+    if(cur_entry->file_type == EXT2_FT_DIR){
+        if(strcmp(dir_name, ".") != 0 && strcmp(dir_name, "..") != 0){
+            if(!dir_recoverable(cur_entry->inode)){
+                return 0;
+            }            
+        }
+    }else{
+        if(!recoverable(cur_entry->inode)){
+            return 0; 
+        }
     }
     return 1;
 }
@@ -234,13 +258,34 @@ int dir_recoverable(int dir_inode_num){
 void restore_dir_block(int block_num){
     restore_data_block(block_num);
     struct ext2_dir_entry *cur_entry = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_num);
-    int cur_rec = 0;    
+    int cur_rec = 0;   
+    char dir_name[cur_entry->name_len+1];
     while(cur_rec + cur_entry->rec_len < EXT2_BLOCK_SIZE){
-        restore_inode_full(cur_entry->inode);
+        strncpy(dir_name, cur_entry->name, cur_entry->name_len);
+        dir_name[cur_entry->name_len] = '\0';
+        if(cur_entry->file_type == EXT2_FT_DIR){  //dir
+            if(strcmp(dir_name, ".") == 0 || strcmp(dir_name, "..") == 0){
+                (&(inode_table[cur_entry->inode-1]))->i_links_count += 1;
+            }else{
+                restore_dir(cur_entry->inode);
+            }
+        }else{
+            restore_inode_full(cur_entry->inode);
+        }
         cur_rec += cur_entry->rec_len;
         cur_entry = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_num + cur_rec);
     }
-    restore_inode_full(cur_entry->inode);
+    strncpy(dir_name, cur_entry->name, cur_entry->name_len);
+    dir_name[cur_entry->name_len] = '\0';
+    if(cur_entry->file_type == EXT2_FT_DIR){
+        if(strcmp(dir_name, ".") != 0 && strcmp(dir_name, "..") != 0){
+            restore_dir(cur_entry->inode);            
+        }else{
+            (&(inode_table[cur_entry->inode-1]))->i_links_count += 1;
+        }
+    }else{
+        restore_inode_full(cur_entry->inode);
+    }
 }
 
 /*
@@ -261,8 +306,8 @@ void restore_dir(int dir_inode_num){
 
 int main(int argc, char **argv){
     //validate arguments
-    if(argc != 3){
-        printf("Usage: ext2_restore <image file name> <path to file>\n");
+    if(argc != 4 || strcmp(argv[2], "-r") != 0){
+        printf("Usage: ext2_restore <image file name> -r <path to file>\n");
         exit(100);
     }
 
@@ -283,9 +328,9 @@ int main(int argc, char **argv){
     dblock_size = sb->s_blocks_count;
 
     //copy args and separate into dir_path and filename
-    char file_path[strlen(argv[2])+1];
-    strncpy(file_path, argv[2], strlen(argv[2]));
-    file_path[strlen(argv[2])] = '\0';
+    char file_path[strlen(argv[3])+1];
+    strncpy(file_path, argv[3], strlen(argv[3]));
+    file_path[strlen(argv[3])] = '\0';
 
     int tail = strlen(file_path)-1;
     int filename_length = 0;
@@ -302,8 +347,6 @@ int main(int argc, char **argv){
     char dir_path[tail+1];
     strncpy(dir_path, file_path, tail);
     dir_path[tail] = '\0';
-    printf("filename is: %s\n", filename);
-    printf("dir path is: %s\n", dir_path);
 
     //validate dir path
     int dir_inode_num = cd_revised(dir_path, 'd');    
@@ -350,12 +393,13 @@ int main(int argc, char **argv){
                             restore_inode_full(gap_inode_num);
                             return 0;
                         }else{
-                            return ENOENT; //?????????????????or maybe another error?
+                            return ENOENT; 
                         }
                     }else{ //we need to restore a dir
                         if(dir_recoverable(gap_inode_num)){
                             restore_entry(dblock_num, cur_rec, gap_rec);
-                            restore_dir(gap_inode_num);                            
+                            restore_dir(gap_inode_num); 
+                            return 0;                           
                         }else{
                             return ENOENT; 
                         }
@@ -388,12 +432,13 @@ int main(int argc, char **argv){
                     restore_inode_full(gap_inode_num);
                     return 0;
                 }else{
-                    return ENOENT; //?????????????????or maybe another error?
+                    return ENOENT; 
                 }
             }else{  //we need to restore a dir
                 if(dir_recoverable(gap_inode_num)){
                     restore_entry(dblock_num, cur_rec, gap_rec);
-                    restore_dir(gap_inode_num);   
+                    restore_dir(gap_inode_num); 
+                    return 0;  
                 }else{
                     return ENOENT;
                 }
@@ -401,7 +446,7 @@ int main(int argc, char **argv){
         }
  
         index++;
-        cur_rec = 0;  //important!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        cur_rec = 0;  
     }
     return ENOENT;
 }

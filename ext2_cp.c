@@ -53,11 +53,6 @@ int main(int argc, char **argv){
 
 
     //copy the contents of the arguments
-    /*int head = 0;
-    while(head < strlen(argv[3]) && argv[3][head] == '/'){
-        head++;
-    }    
-    char *argv3 = &(argv[3][head]);*/
     char source[strlen(argv[2])+1];
     strncpy(source, argv[2], strlen(argv[2]));
     source[strlen(argv[2])] = '\0';
@@ -108,7 +103,7 @@ int main(int argc, char **argv){
     int length_of_last = 0;
     char dest_without_last[EXT2_NAME_LEN+1];
     char alternative_filename[EXT2_NAME_LEN+1];
-    if(compute_level(dest) >= 1){    // >= 1, considering "/rename.txt", under root
+    if(compute_level(dest) >= 1){
 	    tail = strlen(dest)-1;
 	    while(tail >= 0 && dest[tail] != '/'){
 		tail--;
@@ -118,13 +113,8 @@ int main(int argc, char **argv){
 	    dest_without_last[tail] = '\0';
 	    strncpy(alternative_filename, &(dest[tail+1]), length_of_last);
 	    alternative_filename[length_of_last] = '\0';
-            //get rid of trailing slashes of dest_without_last
-            /*tail = strlen(dest_without_last)-1;
-            while(tail >= 0 && dest_without_last[tail] == '/'){
-                tail--;
-            }
-            dest_without_last[tail+1] = '\0';*/
-            case2 = 1;
+
+        case2 = 1;
     }
 
        
@@ -141,12 +131,12 @@ int main(int argc, char **argv){
     
     if(case2){  
         if(search_in_inode(alternative_filename, strlen(alternative_filename), inode_table[dir_inode_num-1], 'f') > 0){
-            printf("result of search_in_inode: %d\n",search_in_inode(alternative_filename, strlen(alternative_filename), inode_table[dir_inode_num-1], 'f'));
+
             return EEXIST;
         }
     }else{
         if(search_in_inode(filename, strlen(filename), inode_table[dir_inode_num-1], 'f') > 0){
-            printf("result of search_in_inode: %d\n",search_in_inode(filename, strlen(filename), inode_table[dir_inode_num-1], 'f'));
+
             return EEXIST;
         }
     }
@@ -196,28 +186,28 @@ int main(int argc, char **argv){
             if(indirect_block_index == -1){
                 return ENOSPC;
             }
-            //indirect_block_index--;
-            cp_inode->i_blocks += 2;  //newest modify!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
             cp_inode->i_block[12] = indirect_block_index;
+	    cp_inode->i_blocks += 2;
             indirect_block = (unsigned int *)(disk + EXT2_BLOCK_SIZE*indirect_block_index);
             block_index_in_inode = 0;
         }
         have_read = fread(buf, 1, EXT2_BLOCK_SIZE, fp);
         if(have_read > 0){
-            //printf("hey!!!!!!!!!!!!!!!!!!!!\n");
+
             buf[have_read] = '\0';
             int data_block_index = allocate_dblock();
             if(data_block_index == -1){
                 return ENOSPC;
             }
-            //data_block_index--;
+
             if(indirect){
                 indirect_block[block_index_in_inode] = data_block_index;
             }else{
                 cp_inode->i_block[block_index_in_inode] = data_block_index;
             }
             char *copy_dest = (char *)(disk + EXT2_BLOCK_SIZE*data_block_index);
-            strncpy(copy_dest, buf, strlen(buf));  //are there other ways to copy data? check!!!!!!!!!!!!!!!!!!!!!!!!
+            strncpy(copy_dest, buf, strlen(buf));  
             cp_inode->i_size += have_read;
             cp_inode->i_blocks += 2;
 
@@ -228,7 +218,6 @@ int main(int argc, char **argv){
         }
     }
 
-    printf("cp finished!\n");
     return 0;
 }
 

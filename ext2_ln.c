@@ -67,26 +67,22 @@ int main(int argc, char **argv){
         strncpy(linkname_hard, &(dest_hard[tail+1]), linkname_hard_length);
         linkname_hard[linkname_hard_length] = '\0';
         dest_hard[tail] = '\0';
-        //printf("hard link\n");
-        //printf("source is: %s\n", source_hard);
-        //printf("dest is: %s\n", dest_hard);
-        //printf("link name is: %s\n", linkname_hard);
 
         //check if the source given is a dir
         if(cd_revised(source_hard, 'd') > 0){
             return EISDIR;
         }
-        printf("place1\n");
+
         int inode_num = cd_revised(source_hard, 'f');
         int dir_inode_num = cd_revised(dest_hard, 'd');
         if(inode_num < 0 || dir_inode_num < 0){
             return ENOENT;
         }
-        printf("place1.5\n");
+
         if(exists_repetitive_dir_entry(dir_inode_num, linkname_hard, 'f')){
             return EEXIST;
         }
-        printf("place2\n");
+
         //add an entry to inode numbered dir_inode_num
         struct ext2_dir_entry *hard_link = malloc(sizeof(struct ext2_dir_entry));
         hard_link->inode = inode_num;
@@ -98,7 +94,7 @@ int main(int argc, char **argv){
             return ENOSPC;
         }
         free(hard_link);
-        printf("place3\n");
+
         //increase i_links_count in source by 1
         inode_table[inode_num-1].i_links_count += 1;
       
@@ -125,15 +121,10 @@ int main(int argc, char **argv){
         char dest_without_linkname[tail+1];
         strncpy(dest_without_linkname, dest_soft, tail);
         dest_without_linkname[tail] = '\0';
-        //printf("symbolic link\n");
-        //printf("source is: %s\n", source_soft);
-        //printf("dest is: %s\n", dest_soft);
-        //printf("link name is: %s\n", linkname_soft);
-        //printf("pure path is: %s\n", dest_without_linkname);
 
         //check if source path is valid
         if(cd_revised(source_soft, 'd') < 0 && cd_revised(source_soft, 'f') < 0 && cd_revised(source_soft, 'l') < 0){
-            return ENOENT;       //newest update!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            return ENOENT;       
         }
 
         //check if link name exists: use search_in_inode
