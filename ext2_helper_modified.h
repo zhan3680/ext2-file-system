@@ -26,7 +26,7 @@ int free_map(char type, int block_num);
 //int cd_revised_multi_functional(char* path, char type);
 int exists_repetitive_dir_entry(int dir_inode_num, char *name, char type);
 int add_entry(int dir_inode_num, struct ext2_dir_entry *entry_to_add);
-
+int is_root(char *path);
 
 
 extern unsigned char *disk;
@@ -340,14 +340,50 @@ int cd(char* path, int i_node_start, int level, char type){
 }
 
 /*
+ * return 1 if given path refers to root
+ */
+int is_root(char *path){
+    if(strlen(path) == 0){
+        return 1;
+    }
+    int head = 0;
+    int count = 0;
+    while(head < strlen(path)){
+        if(head == 0){
+            if(path[head] == '.' || path[head] == '/'){
+                count += 1;
+            }else{
+                break;
+            }
+        }else{
+            if(path[head] == '/'){
+                count += 1;     
+            }else{
+                break;
+            }
+        }
+        head++;
+    }
+    if(count == strlen(path)){
+        return 1;
+    }else{
+        return 0;
+    }
+}
+
+
+/*
  * return inode number on success, -1 if not found (path is invalid)
  * if type == 'f', then search for file;
  * if type == 'd', then search for directory;
  */
 int cd_revised(char* path, char type){
-        if(strlen(path) == 0 || compute_level(path) == 0){
+        /*if(strlen(path) == 0 || compute_level(path) == 0){
             return -ENOENT;
-        }
+        }*/
+        if(is_root(path)){
+            return EXT2_ROOT_INO;
+        }        
 	/* The root inode of all. */
 	int head = 0; //keep track of where current dir starts (used to process subdirs)
         int length = 1; //length of current dir
@@ -462,8 +498,8 @@ int add_entry(int dir_inode_num, struct ext2_dir_entry *entry_to_add){
     if(block_index == -1){
         return -ENOSPC;
     }   
-    struct ext2_dir_entry *temp;
-    int cur_rec_when_we_are_at_temp;  //modified!!!!!!!!!!!!!!!!!!!!
+    //struct ext2_dir_entry *temp;
+    //int cur_rec_when_we_are_at_temp;  //modified!!!!!!!!!!!!!!!!!!!!
     struct ext2_dir_entry *cur_entry = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_index);
     int cur_rec = 0;
     int entry_inserted = 0;
@@ -472,13 +508,13 @@ int add_entry(int dir_inode_num, struct ext2_dir_entry *entry_to_add){
 		cur_rec += cur_entry->rec_len;
 		cur_entry = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_index + cur_rec);   
 	    }
-	    int cur_entry_rec_len = calculate_reclen(cur_entry);
+	    /*int cur_entry_rec_len = calculate_reclen(cur_entry);
 	    if(cur_rec + cur_entry_rec_len < EXT2_BLOCK_SIZE){
 	        struct ext2_dir_entry *next_entry_possibly_a_gap = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_index + cur_rec + cur_entry_rec_len);
 	        temp = cur_entry;
                 temp->rec_len = calculate_reclen(temp); //modified!!!!!!!!!!!!!!!!!!!!!!!!!!!
                 cur_rec_when_we_are_at_temp = cur_rec;  //modified!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	        while(next_entry_possibly_a_gap->inode != 0 /*&& cur_rec + cur_entry->rec_len < EXT2_BLOCK_SIZE*/){ //we have a gap at the end of current block!!!
+	        while(next_entry_possibly_a_gap->inode != 0 ){ //we have a gap at the end of current block!!!
 		    cur_rec += cur_entry_rec_len;
 		    cur_entry = next_entry_possibly_a_gap;
 		    if(cur_rec + cur_entry->rec_len >= EXT2_BLOCK_SIZE){
@@ -491,7 +527,7 @@ int add_entry(int dir_inode_num, struct ext2_dir_entry *entry_to_add){
 		    }
 		    next_entry_possibly_a_gap = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_index + cur_rec + cur_entry_rec_len);    
 		}
-	    }
+	    }*/
 	    //temp->rec_len = cur_rec + cur_entry_rec_len - EXT2_BLOCK_SIZE + temp->rec_len;
             if((EXT2_BLOCK_SIZE - cur_rec) - calculate_reclen(cur_entry) < entry_to_add->rec_len){
                 if(i_block_index >= 11){
@@ -501,7 +537,7 @@ int add_entry(int dir_inode_num, struct ext2_dir_entry *entry_to_add){
                     if(block_index == -1){
                         return -ENOSPC;  
                     }
-                    temp->rec_len = EXT2_BLOCK_SIZE - cur_rec_when_we_are_at_temp; //modified!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    //temp->rec_len = EXT2_BLOCK_SIZE - cur_rec_when_we_are_at_temp; //modified!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                     i_block_index += 1;
                     //block_index -= 1;
                     dir_inode->i_block[i_block_index] = block_index;

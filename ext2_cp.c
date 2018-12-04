@@ -108,7 +108,7 @@ int main(int argc, char **argv){
     int length_of_last = 0;
     char dest_without_last[EXT2_NAME_LEN+1];
     char alternative_filename[EXT2_NAME_LEN+1];
-    if(compute_level(dest) > 1){
+    if(compute_level(dest) >= 1){    // >= 1, considering "/rename.txt", under root
 	    tail = strlen(dest)-1;
 	    while(tail >= 0 && dest[tail] != '/'){
 		tail--;
@@ -197,6 +197,7 @@ int main(int argc, char **argv){
                 return ENOSPC;
             }
             //indirect_block_index--;
+            cp_inode->i_blocks += 2;  //newest modify!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             cp_inode->i_block[12] = indirect_block_index;
             indirect_block = (unsigned int *)(disk + EXT2_BLOCK_SIZE*indirect_block_index);
             block_index_in_inode = 0;

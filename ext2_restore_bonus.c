@@ -162,7 +162,7 @@ void restore_inode_full(int inode_num){
 
     struct ext2_inode *inode_to_restore = (struct ext2_inode *)(&(inode_table[inode_num-1]));
     inode_to_restore -> i_dtime = 0;
-    inode_to_restore -> i_links_count += 1;  //newest modification!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    inode_to_restore -> i_links_count += 1;
     int index = 0;
     int block_index;    
     while(inode_to_restore->i_block[index] != 0 && index < 12){
@@ -183,6 +183,78 @@ void restore_inode_full(int inode_num){
             }
         }
  
+    }
+}
+
+/*
+ * return 1 if all entries in a dir-block as well as the block itself is recoverable, return 0 otherwise
+ */
+int dir_block_recoverable(int block_num){
+    if(data_block_occupied(block_num)){
+        return 0;
+    }
+    struct ext2_dir_entry *cur_entry = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_num);
+    int cur_rec = 0;    
+    while(cur_rec + cur_entry->rec_len < EXT2_BLOCK_SIZE){
+        if(!recoverable(cur_entry->inode)){
+            return 0;
+        }
+        cur_rec += cur_entry->rec_len;
+        cur_entry = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_num + cur_rec);
+    }
+    if(!recoverable(cur_entry->inode)){
+        return 0; 
+    }
+    return 1;
+}
+
+/*
+ * return 1 if all entries under a certain dir as well as the dir itself is recoverable, return 0 otherwise
+ */
+int dir_recoverable(int dir_inode_num){
+    if(!recoverable(dir_inode_num)){
+        return 0;
+    }
+    struct ext2_inode *dir_inode = (struct ext2_inode *)(&(inode_table[dir_inode_num-1]));
+    int index = 0;
+    int block_index;
+    while(dir_inode->i_block[index] != 0 && index <= 11){
+        block_index = dir_inode->i_block[index];
+        if(!dir_block_recoverable(block_index)){
+            return 0;
+        }
+        index++;
+    }
+    return 1;
+}
+
+/*
+ * restore each entry in a block
+ */
+void restore_dir_block(int block_num){
+    restore_data_block(block_num);
+    struct ext2_dir_entry *cur_entry = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_num);
+    int cur_rec = 0;    
+    while(cur_rec + cur_entry->rec_len < EXT2_BLOCK_SIZE){
+        restore_inode_full(cur_entry->inode);
+        cur_rec += cur_entry->rec_len;
+        cur_entry = (struct ext2_dir_entry *)(disk + EXT2_BLOCK_SIZE*block_num + cur_rec);
+    }
+    restore_inode_full(cur_entry->inode);
+}
+
+/*
+ * restore all entries under a certain directory as well as restore the directory block itself 
+ */
+void restore_dir(int dir_inode_num){
+    restore_inode_full(dir_inode_num);    
+    struct ext2_inode *dir_inode = (struct ext2_inode *)(&(inode_table[dir_inode_num-1]));
+    int index = 0;
+    int block_index;
+    while(dir_inode->i_block[index] != 0 && index <= 11){
+        block_index = dir_inode->i_block[index];
+        restore_dir_block(block_index);
+        index++;
     }
 }
 
@@ -264,7 +336,7 @@ int main(int argc, char **argv){
                     }else if(gap->file_type == EXT2_FT_SYMLINK){
                         type = 'l';
                     }else if(gap->file_type == EXT2_FT_DIR){
-                        return EISDIR;
+                        type = 'd';
                     }else{
                         return ENOENT;
                     }
@@ -272,12 +344,21 @@ int main(int argc, char **argv){
                         return EEXIST;
                     }
                     gap_inode_num = gap->inode;
-                    if(recoverable(gap_inode_num)){
-                        restore_entry(dblock_num, cur_rec, gap_rec);
-                        restore_inode_full(gap_inode_num);
-                        return 0;
-                    }else{
-                        return ENOENT; //?????????????????or maybe another error?
+                    if(type == 'f' || type == 'l'){
+                        if(recoverable(gap_inode_num)){
+                            restore_entry(dblock_num, cur_rec, gap_rec);
+                            restore_inode_full(gap_inode_num);
+                            return 0;
+                        }else{
+                            return ENOENT; //?????????????????or maybe another error?
+                        }
+                    }else{ //we need to restore a dir
+                        if(dir_recoverable(gap_inode_num)){
+                            restore_entry(dblock_num, cur_rec, gap_rec);
+                            restore_dir(gap_inode_num);                            
+                        }else{
+                            return ENOENT; 
+                        }
                     }
                 }
             }
@@ -293,7 +374,7 @@ int main(int argc, char **argv){
             }else if(gap->file_type == EXT2_FT_SYMLINK){
                 type = 'l';
             }else if(gap->file_type == EXT2_FT_DIR){
-                return EISDIR;
+                type = 'd';
             }else{
                 return ENOENT;
             }
@@ -301,12 +382,21 @@ int main(int argc, char **argv){
                 return EEXIST;
             }
             gap_inode_num = gap->inode;
-            if(recoverable(gap_inode_num)){
-                restore_entry(dblock_num, cur_rec, gap_rec);
-                restore_inode_full(gap_inode_num);
-                return 0;
-            }else{
-                return ENOENT; //?????????????????or maybe another error?
+            if(type == 'f' || type == 'l'){
+                if(recoverable(gap_inode_num)){
+                    restore_entry(dblock_num, cur_rec, gap_rec);
+                    restore_inode_full(gap_inode_num);
+                    return 0;
+                }else{
+                    return ENOENT; //?????????????????or maybe another error?
+                }
+            }else{  //we need to restore a dir
+                if(dir_recoverable(gap_inode_num)){
+                    restore_entry(dblock_num, cur_rec, gap_rec);
+                    restore_dir(gap_inode_num);   
+                }else{
+                    return ENOENT;
+                }
             }
         }
  
